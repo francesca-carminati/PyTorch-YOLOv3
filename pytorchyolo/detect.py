@@ -7,6 +7,7 @@ import argparse
 import tqdm
 import random
 import numpy as np
+import json
 
 from PIL import Image
 
@@ -157,12 +158,20 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     :param classes: List of class names
     :type classes: [str]
     """
-
+    
     # Iterate through images and save plot of detections
+    output_list = []
     for (image_path, detections) in zip(imgs, img_detections):
         print(f"Image {image_path}:")
-        _draw_and_save_output_image(
+        output_dict = {"image": image_path}
+        out = _draw_and_save_output_image(
             image_path, detections, img_size, output_path, classes)
+        output_dict.update(out)
+        output_list.append(output_dict)
+    # Save output file
+    output_path_json = os.path.join(output_path, "output.json")
+    with open(output_path_json, 'w') as fout:
+        json.dump(output_list , fout)
 
 
 def _draw_and_save_output_image(image_path, detections, img_size, output_path, classes):
@@ -223,6 +232,11 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     output_path = os.path.join(output_path, f"{filename}.png")
     plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
+
+    output_dict = {"ll": x1.item(), "lr": x2.item(), "tl": y1.item(), "tr": y2.item(), 
+        "confidence":conf.item()}
+
+    return output_dict
 
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu):
