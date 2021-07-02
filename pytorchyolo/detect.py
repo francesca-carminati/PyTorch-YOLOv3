@@ -195,6 +195,8 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     for x1, y1, x2, y2, conf, cls_pred in detections:
 
         print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
+        print("Coordinates:\n")
+        print(f"low left: {x1}, low right: {x1},top left: {y1},top right: {y2}")
 
         box_w = x2 - x1
         box_h = y2 - y1
