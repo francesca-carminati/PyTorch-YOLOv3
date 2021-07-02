@@ -7,7 +7,7 @@ dist
 output
 data/*
 backup
-weights/*.weights
+weights/*
 __pycache__
 checkpoints
 
