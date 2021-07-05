@@ -161,13 +161,15 @@ def _draw_and_save_output_images(img_detections, imgs, img_size, output_path, cl
     
     # Iterate through images and save plot of detections
     output_list = []
+    
     for (image_path, detections) in zip(imgs, img_detections):
         print(f"Image {image_path}:")
         output_dict = {"image": image_path}
-        out = _draw_and_save_output_image(
+        annotations = _draw_and_save_output_image(
             image_path, detections, img_size, output_path, classes)
-        output_dict.update(out)
+        output_dict.update({'annotations':annotations})
         output_list.append(output_dict)
+        
     # Save output file
     output_path_json = os.path.join(output_path, "output.json")
     with open(output_path_json, 'w') as fout:
@@ -201,11 +203,14 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     cmap = plt.get_cmap("tab20b")
     colors = [cmap(i) for i in np.linspace(0, 1, n_cls_preds)]
     bbox_colors = random.sample(colors, n_cls_preds)
+    annotations = []
     for x1, y1, x2, y2, conf, cls_pred in detections:
+        keys =['class', 'confidence', 'bl','br','tl','tr']
+        values = [classes[int(cls_pred)], conf.item(), x1.item(),x2.item(),y1.item(),y2.item() ]
+        single_annotation = dict(zip(keys,values))
+        annotations.append(single_annotation)
 
         print(f"\t+ Label: {classes[int(cls_pred)]} | Confidence: {conf.item():0.4f}")
-        print("Coordinates:\n")
-        print(f"low left: {x1}, low right: {x1},top left: {y1},top right: {y2}")
 
         box_w = x2 - x1
         box_h = y2 - y1
@@ -223,7 +228,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
             color="white",
             verticalalignment="top",
             bbox={"color": color, "pad": 0})
-
+    
     # Save generated image with detections
     plt.axis("off")
     plt.gca().xaxis.set_major_locator(NullLocator())
@@ -233,10 +238,7 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
 
-    output_dict = {"ll": x1.item(), "lr": x2.item(), "tl": y1.item(), "tr": y2.item(), 
-        "confidence":conf.item()}
-
-    return output_dict
+    return annotations
 
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu):
