@@ -25,9 +25,12 @@ from terminaltables import AsciiTable
 from torchsummary import summary
 
 from sacred import Experiment
+from sacred.observers import MongoObserver
 
 ex = Experiment()
-
+ex.observers.append(MongoObserver(
+    url='mongodb://sample:password@localhost/?authMechanism=SCRAM-SHA-1',
+    db_name='db'))
 
 def _create_data_loader(img_path, batch_size, img_size, n_cpu, multiscale_training=False):
     """Creates a DataLoader for training.
@@ -92,7 +95,7 @@ def my_config():
     conf_thres = 0.1
     nms_thres = 0.5 
     logdir = "logs"
-    seed = -1 
+    seed = 2
 
 
     
@@ -252,6 +255,9 @@ def run(model,
                 ("train/obj_loss", float(loss_components[1])),
                 ("train/class_loss", float(loss_components[2])),
                 ("train/loss", to_cpu(loss).item())]
+            # Sacred Logging
+            for metric in tensorboard_log:
+                ex.log_scalar(f"{metric[0]}", metric[1], batches_done)
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
@@ -291,7 +297,11 @@ def run(model,
                     ("validation/recall", recall.mean()),
                     ("validation/mAP", AP.mean()),
                     ("validation/f1", f1.mean())]
-                logger.list_of_scalars_summary(evaluation_metrics, epoch)
+                
+                 # Log all metrics in sacred
+                for metric in evaluation_metrics:
+                    ex.log_scalar(f"{metric[0]}", metric[1], epoch+1)
+                    logger.list_of_scalars_summary(evaluation_metrics, epoch)
 
 
 #if __name__ == "__main__":

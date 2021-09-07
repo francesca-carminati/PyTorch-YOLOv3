@@ -1,0 +1,30 @@
+version: '3'
+services:
+
+  mongo:
+    image: mongo
+    ports:
+      - 0.0.0.0:27019:27019
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: sample
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: db
+    expose:
+      - 27019
+    #volumes:
+    #  - /home/francesca.carminati/repo/PyTorch-YOLOv3/extra/omniboard/sacred_db:/data/db
+    networks:
+      - omniboard
+
+  omniboard:
+    image: vivekratnavel/omniboard:latest
+    command: ["--mu", "mongodb://sample:password@mongo:27019/db?authSource=admin"]
+    ports:
+      - 0.0.0.0:9179:9000
+    networks:
+      - omniboard
+    depends_on:
+      - mongo
+
+networks:
+  omniboard:
