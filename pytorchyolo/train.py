@@ -152,7 +152,7 @@ def run(model,
     # #################
 
     # Load training dataloader
-    dataloader = _create_data_loader(
+    training_dataloader = _create_data_loader(
         train_path,
         mini_batch_size,
         model.hyperparams['height'],
@@ -195,9 +195,9 @@ def run(model,
         print("\n---- Training Model ----")
 
         model.train()  # Set model to training mode
-
-        for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(dataloader, desc=f"Training Epoch {epoch}")):
-            batches_done = len(dataloader) * epoch + batch_i
+        best_mAP = 0
+        for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(training_dataloader, desc=f"Training Epoch {epoch}")):
+            batches_done = len(training_dataloader) * epoch + batch_i
 
             imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
@@ -255,12 +255,15 @@ def run(model,
                 ("train/obj_loss", float(loss_components[1])),
                 ("train/class_loss", float(loss_components[2])),
                 ("train/loss", to_cpu(loss).item())]
-            # Sacred Logging
-            for metric in tensorboard_log:
-                ex.log_scalar(f"{metric[0]}", metric[1], batches_done)
+
+
             logger.list_of_scalars_summary(tensorboard_log, batches_done)
 
             model.seen += imgs.size(0)
+        
+        # Sacred Logging Training loss
+        
+        ex.log_scalar("train-loss", to_cpu(loss).item(), epoch+1)
 
         # #############
         # Save progress
@@ -278,30 +281,67 @@ def run(model,
 
         if epoch % evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
-            # Evaluate the model on the validation set
-            metrics_output = _evaluate(
-                model,
-                validation_dataloader,
-                class_names,
-                img_size=model.hyperparams['height'],
-                iou_thres=iou_thres,
-                conf_thres=conf_thres,
-                nms_thres=nms_thres,
-                verbose=verbose
-            )
 
-            if metrics_output is not None:
-                precision, recall, AP, f1, ap_class = metrics_output
-                evaluation_metrics = [
-                    ("validation/precision", precision.mean()),
-                    ("validation/recall", recall.mean()),
-                    ("validation/mAP", AP.mean()),
-                    ("validation/f1", f1.mean())]
-                
-                 # Log all metrics in sacred
-                for metric in evaluation_metrics:
-                    ex.log_scalar(f"{metric[0]}", metric[1], epoch+1)
-                    logger.list_of_scalars_summary(evaluation_metrics, epoch)
+            for subset in ['training', 'validation']:
+                print('Evaluate ' + subset + ' set')
+                dataloader = training_dataloader if subset == 'training' else validation_dataloader
+
+                # Evaluate the model on the validation set
+                metrics_output = _evaluate(
+                    model,
+                    dataloader,
+                    class_names,
+                    img_size=model.hyperparams['height'],
+                    iou_thres=iou_thres,
+                    conf_thres=conf_thres,
+                    nms_thres=nms_thres,
+                    verbose=verbose
+                )
+
+                if metrics_output is not None:
+                    precision, recall, AP, f1, ap_class = metrics_output
+                    evaluation_metrics = [
+                        ("precision", precision.mean()),
+                        ("recall", recall.mean()),
+                        ("mAP", AP.mean()),
+                        ("f1", f1.mean())]
+                    
+                    # Log all metrics in sacred
+                    for metric in evaluation_metrics:
+                        ex.log_scalar(f"{subset}.{metric[0]}", metric[1], epoch+1)
+                        logger.list_of_scalars_summary(evaluation_metrics, epoch)
+                #Save best checkpoint
+                if subset == 'validation':
+                    mAP = evaluation_metrics[2][1]
+                    if mAP > best_mAP:
+                        checkpoint_path = f"checkpoints/best_ckpt.pth"
+                        print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
+                        torch.save(model.state_dict(), checkpoint_path)
+#####################
+####################
+            for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(training_dataloader, desc=f"Training Epoch {epoch}")):
+                #batches_done = len(training_dataloader) * epoch + batch_i
+
+                imgs = imgs.to(device, non_blocking=True)
+                targets = targets.to(device)
+
+                outputs = model(imgs)
+
+                loss, loss_components = compute_loss(outputs, targets, model)
+#####################
+####################
+            
+            for _, imgs, targets in tqdm.tqdm(validation_dataloader, desc="Computing val loss"):
+                imgs = imgs.to(device, non_blocking=True)
+                targets = targets.to(device)
+
+                outputs = model(imgs)
+
+                loss, loss_components = compute_loss(outputs, targets, model)
+            ex.log_scalar("val-loss", to_cpu(loss).item(), epoch+1)
+
+
+            
 
 
 #if __name__ == "__main__":
