@@ -190,6 +190,10 @@ def run(model,
     # Enable data parallelism
     #model = torch.nn.DataParallel(model)
 
+
+    # ###################
+    # Training Loop 
+    # ###################
     for epoch in range(epochs):
 
         print("\n---- Training Model ----")
@@ -198,15 +202,25 @@ def run(model,
         best_mAP = 0
         for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(training_dataloader, desc=f"Training Epoch {epoch}")):
             batches_done = len(training_dataloader) * epoch + batch_i
-
+            
             imgs = imgs.to(device, non_blocking=True)
             targets = targets.to(device)
 
             outputs = model(imgs)
-
+            
             loss, loss_components = compute_loss(outputs, targets, model)
 
+            # print('\ntraining')
+            # # print(f'outputs: {outputs.size()}')
+            # # print(f'targets: {targets.size()}')
+            
+            # print(f'outputs: {type(outputs[0])}')
+            # # print(f'targets: {type(targets)}')
+            # print(f'targets: {targets.size()}')
+
             loss.backward()
+
+            
 
             ###############
             # Run optimizer
@@ -282,11 +296,32 @@ def run(model,
         if epoch % evaluation_interval == 0:
             print("\n---- Evaluating Model ----")
 
-            for subset in ['training', 'validation']:
+            for subset in ['validation','training']:
                 print('Evaluate ' + subset + ' set')
-                dataloader = training_dataloader if subset == 'training' else validation_dataloader
 
-                # Evaluate the model on the validation set
+
+                if subset == 'validation':
+
+                    dataloader = validation_dataloader 
+                    
+                    for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(validation_dataloader, desc=f"Compute validation loss for epoch {epoch}")):
+                        #batches_done = len(training_dataloader) * epoch + batch_i
+
+                        imgs = imgs.to(device, non_blocking=True)
+                        targets = targets.to(device)
+
+                        outputs = model(imgs)
+
+                        loss, loss_components = compute_loss(outputs, targets, model)
+
+                    ex.log_scalar("val-loss", to_cpu(loss).item(), epoch+1)
+
+                else:
+
+                    dataloader = training_dataloader
+
+
+                # Evaluate the model 
                 metrics_output = _evaluate(
                     model,
                     dataloader,
@@ -317,28 +352,16 @@ def run(model,
                         checkpoint_path = f"checkpoints/best_ckpt.pth"
                         print(f"---- Saving best checkpoint to: '{checkpoint_path}' ----")
                         torch.save(model.state_dict(), checkpoint_path)
-#####################
-####################
-            for batch_i, (_, imgs, targets) in enumerate(tqdm.tqdm(training_dataloader, desc=f"Training Epoch {epoch}")):
-                #batches_done = len(training_dataloader) * epoch + batch_i
 
-                imgs = imgs.to(device, non_blocking=True)
-                targets = targets.to(device)
-
-                outputs = model(imgs)
-
-                loss, loss_components = compute_loss(outputs, targets, model)
-#####################
-####################
             
-            for _, imgs, targets in tqdm.tqdm(validation_dataloader, desc="Computing val loss"):
-                imgs = imgs.to(device, non_blocking=True)
-                targets = targets.to(device)
+            # for _, imgs, targets in tqdm.tqdm(validation_dataloader, desc="Computing val loss"):
+            #     imgs = imgs.to(device, non_blocking=True)
+            #     targets = targets.to(device)
 
-                outputs = model(imgs)
+            #     outputs = model(imgs)
 
-                loss, loss_components = compute_loss(outputs, targets, model)
-            ex.log_scalar("val-loss", to_cpu(loss).item(), epoch+1)
+            #     loss, loss_components = compute_loss(outputs, targets, model)
+            # ex.log_scalar("val-loss", to_cpu(loss).item(), epoch+1)
 
 
             

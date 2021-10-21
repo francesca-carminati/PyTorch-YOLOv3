@@ -14,6 +14,7 @@ from torch.autograd import Variable
 
 from pytorchyolo.models import load_model
 from pytorchyolo.utils.utils import load_classes, ap_per_class, get_batch_statistics, non_max_suppression, to_cpu, xywh2xyxy, print_environment_info
+#from pytorchyolo.utils.loss import compute_loss
 from pytorchyolo.utils.datasets import ListDataset
 from pytorchyolo.utils.transforms import DEFAULT_TRANSFORMS
 from pytorchyolo.utils.parse_config import parse_data_config
@@ -77,7 +78,8 @@ def print_eval_stats(metrics_output, class_names, verbose):
 
 
 def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, nms_thres, verbose):
-    """Evaluate model on validation dataset.
+    """ 
+    model on validation dataset.
 
     :param model: Model to evaluate
     :type model: models.Darknet
@@ -113,11 +115,22 @@ def _evaluate(model, dataloader, class_names, img_size, iou_thres, conf_thres, n
         imgs = Variable(imgs.type(Tensor), requires_grad=False)
 
         with torch.no_grad():
-            outputs = to_cpu(model(imgs))
+            # outputs = to_cpu(model(imgs))
+            outputs = model(imgs)
+            # print('\n evaluating')
+            # print(f'outputs: {type(outputs[0])}')
+            # print(f'targets: {type(targets)}')
+            # print(f'targets: {targets.size()}')
+
+            # loss, loss_components = compute_loss(outputs, targets, model)
+
+            # print("After computing loss")
+
+            outputs = to_cpu(outputs)
             outputs = non_max_suppression(outputs, conf_thres=conf_thres, iou_thres=nms_thres)
 
         sample_metrics += get_batch_statistics(outputs, targets, iou_threshold=iou_thres)
-
+        
     if len(sample_metrics) == 0:  # No detections over whole validation set.
         print("---- No detections over whole validation set ----")
         return None

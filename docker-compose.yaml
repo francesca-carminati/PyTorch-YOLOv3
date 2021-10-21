@@ -4,15 +4,15 @@ services:
   mongo:
     image: mongo
     ports:
-      - 0.0.0.0:27019:27019
+      - 127.0.0.1:27019:27019
     environment:
       MONGO_INITDB_ROOT_USERNAME: sample
       MONGO_INITDB_ROOT_PASSWORD: password
       MONGO_INITDB_DATABASE: db
     expose:
       - 27019
-    #volumes:
-    #  - /home/francesca.carminati/repo/PyTorch-YOLOv3/extra/omniboard/sacred_db:/data/db
+    volumes:
+     - /home/francesca.carminati/repo/PyTorch-YOLOv3/extra/omniboard/sacred_db:/data/db
     networks:
       - omniboard
 
